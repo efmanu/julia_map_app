@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Sydney Route Finder</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        .control-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            z-index: 1;
+            width: 300px;
+        }
+        .input-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 8px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #3367d6;
+        }
+        .route-info {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="control-panel">
+        <h2>Sydney Route Finder</h2>
+        <div class="input-group">
+            <label>Starting Point</label>
+            <input type="text" id="from-lat" placeholder="From Latitude (e.g., -33.8688)">
+            <input type="text" id="from-lon" placeholder="From Longitude (e.g., 151.2093)">
+        </div>
+        <div class="input-group">
+            <label>Destination</label>
+            <input type="text" id="to-lat" placeholder="To Latitude (e.g., -33.8568)">
+            <input type="text" id="to-lon" placeholder="To Longitude (e.g., 151.2153)">
+        </div>
+        <button id="find-route">Find Route</button>
+        <div class="route-info" id="route-info"></div>
+    </div>
+    <div id="map"></div>
+
+    <script>
+        // Replace with your Mapbox access token
+        mapboxgl.accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN';
+        
+        // Initialize map centered on Sydney
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: [151.2093, -33.8688], // Sydney coordinates
+            zoom: 12
+        });
+
+        // Add navigation controls
+        map.addControl(new mapboxgl.NavigationControl());
+
+        // Add markers for start and end points
+        let startMarker = new mapboxgl.Marker({ color: '#33cc33' });
+        let endMarker = new mapboxgl.Marker({ color: '#cc3333' });
+
+        // Function to find and display route
+        document.getElementById('find-route').addEventListener('click', async () => {
+            const fromLat = document.getElementById('from-lat').value;
+            const fromLon = document.getElementById('from-lon').value;
+            const toLat = document.getElementById('to-lat').value;
+            const toLon = document.getElementById('to-lon').value;
+
+            if (!fromLat || !fromLon || !toLat || !toLon) {
+                alert('Please enter all coordinates');
+                return;
+            }
+
+            try {
+                // Clear previous route if any
+                if (map.getSource('route')) {
+                    map.removeLayer('route-layer');
+                    map.removeSource('route');
+                }
+
+                // Update markers
+                startMarker.setLngLat([parseFloat(fromLon), parseFloat(fromLat)]).addTo(map);
+                endMarker.setLngLat([parseFloat(toLon), parseFloat(toLat)]).addTo(map);
+
+                // Fetch route from our API
+                const response = await fetch(`/route?from_lat=${fromLat}&from_lon=${fromLon}&to_lat=${toLat}&to_lon=${toLon}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    document.getElementById('route-info').innerHTML = `<p style="color: red">${data.error}</p>`;
+                    return;
+                }
+
+                // Display route information
+                document.getElementById('route-info').innerHTML = `
+                    <p><strong>Distance:</strong> ${data.distance_km.toFixed(2)} km</p>
+                `;
+
+                // Add route to map
+                map.addSource('route', {
+                    type: 'geojson',
+                    data: data.route.data
+                });
+
+                map.addLayer({
+                    id: 'route-layer',
+                    type: 'line',
+                    source: 'route',
+                    layout: {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    paint: {
+                        'line-color': '#4285f4',
+                        'line-width': 5,
+                        'line-opacity': 0.75
+                    }
+                });
+
+                // Fit map to show the entire route
+                const coordinates = data.route.data.geometry.coordinates;
+                const bounds = coordinates.reduce((bounds, coord) => {
+                    return bounds.extend(coord);
+                }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
+
+                map.fitBounds(bounds, {
+                    padding: 50
+                });
+
+            } catch (error) {
+                console.error('Error fetching route:', error);
+                document.getElementById('route-info').innerHTML = `<p style="color: red">Error: ${error.message}</p>`;
+            }
+        });
+
+        // Example coordinates for Sydney landmarks
+        const examples = [
+            { name: "Sydney Opera House", lat: -33.8568, lon: 151.2153 },
+            { name: "Circular Quay", lat: -33.8609, lon: 151.2134 },
+            { name: "Bondi Beach", lat: -33.8915, lon: 151.2767 },
+            { name: "Taronga Zoo", lat: -33.8431, lon: 151.2417 }
+        ];
+
+        // Add example locations to the info panel
+        document.getElementById('route-info').innerHTML += `
+            <div style="margin-top: 15px;">
+                <p><strong>Example Locations:</strong></p>
+                <ul style="padding-left: 20px; margin-top: 5px;">
+                    ${examples.map(ex => `<li>${ex.name}: ${ex.lat}, ${ex.lon}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    </script>
+</body>
+</html> 
