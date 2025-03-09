@@ -13,6 +13,7 @@ A Julia web application that calculates and visualizes routes between two points
 
 - Julia 1.6 or higher
 - Internet connection (for downloading OSM data and loading Mapbox)
+- Mapbox access token (free tier available)
 
 ## Dependencies
 
@@ -33,6 +34,14 @@ A Julia web application that calculates and visualizes routes between two points
    ```
    julia -e 'using Pkg; Pkg.activate("."); Pkg.instantiate()'
    ```
+
+3. **Important**: Get a Mapbox access token
+   - Sign up for a free account at [Mapbox](https://www.mapbox.com/)
+   - Create a new access token in your account dashboard
+   - Open the `map.html` file and replace `'YOUR_MAPBOX_ACCESS_TOKEN'` with your actual token:
+     ```javascript
+     mapboxgl.accessToken = 'your_actual_token_here';
+     ```
 
 ## Usage
 
@@ -118,7 +127,8 @@ Service is running
 
 - If the application fails to start, ensure you have an active internet connection and that all dependencies are properly installed.
 - If no route is found, try coordinates that are closer to roads or within the Sydney area.
-- If the map doesn't load, check your browser console for errors related to Mapbox.
+- If the map doesn't load, check that you've correctly added your Mapbox access token to the map.html file.
+- If you see a gray map or map loading errors, verify that your Mapbox token is valid and has the correct permissions.
 
 ## License
 
